@@ -1,5 +1,5 @@
 // Task.model.js
-const mongoose = require('mongoose');
+const mongoose = require('mongoose')
 
 const taskSchema = new mongoose.Schema(
   {
@@ -7,14 +7,13 @@ const taskSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Title is required'],
       trim: true,
-      minlength: 1,
       maxlength: 200,
       index: true,
     },
     description: {
       type: String,
       trim: true,
-      maxlength: 7000, // ~1000 words
+      maxlength: 1000,
       default: '',
     },
     status: {
@@ -35,13 +34,27 @@ const taskSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }
-);
+)
 
 // Compound index — speeds up the most common query: user's tasks filtered by status
-taskSchema.index({ userId: 1, status: 1 });
+taskSchema.index({ userId: 1, status: 1 })
 
-module.exports = mongoose.model('Task', taskSchema);
+// Pre-find hook — every query automatically skips soft-deleted documents
+// This covers find, findOne, findOneAndUpdate, findOneAndDelete, etc.
+taskSchema.pre(/^find/, function (next) {
+  this.where({ isDeleted: false })
+  next()
+})
+
+module.exports = mongoose.model('Task', taskSchema)

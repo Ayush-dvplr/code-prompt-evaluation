@@ -1,61 +1,75 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useTasks } from '../hooks/useTasks';
-import { useAuth } from '../hooks/useAuth';
-import { useDebounce } from '../hooks/useDebounce';
-import TaskCard from '../components/TaskCard';
-import TaskSkeleton from '../components/TaskSkeleton';
-import Modal from '../components/Modal';
-import Spinner from '../components/Spinner';
+// TaskPage.jsx — main task list with filters, search, pagination, and create modal
+import { useState, useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import { useTasks } from '../context/TaskContext'
+import { useAuth } from '../context/AuthContext'
+import { useDebounce } from '../hooks/useDebounce'
+import TaskCard from '../components/TaskCard'
+import SkeletonCard from '../components/SkeletonCard'
+import Modal from '../components/Modal'
+import Spinner from '../components/Spinner'
 
-const STATUSES   = ['', 'pending', 'in-progress', 'completed'];
-const PRIORITIES = ['', 'low', 'medium', 'high'];
+const STATUSES   = ['', 'pending', 'in-progress', 'completed']
+const PRIORITIES = ['', 'low', 'medium', 'high']
 
 const blankForm = {
   title: '', description: '', status: 'pending', priority: 'medium', dueDate: '',
-};
+}
 
 function TaskPage() {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuth()
   const {
-    tasks, pagination, filters, setFilters,
+    tasks, meta, filters, setFilters,
     loading, submitting, fetchTasks,
     createTask, updateTask, deleteTask,
-  } = useTasks();
+  } = useTasks()
 
-  const [searchInput, setSearchInput] = useState('');
-  const [showCreate, setShowCreate]   = useState(false);
-  const [form, setForm]               = useState(blankForm);
+  const [searchInput, setSearchInput] = useState('')
+  const [showCreate, setShowCreate]   = useState(false)
+  const [form, setForm]               = useState(blankForm)
 
-  // Debounce search — only fires filter update after 300ms of no typing
-  const debouncedSearch = useDebounce(searchInput, 300);
+  // Debounce search — only updates filter after 300ms of no typing
+  const debouncedSearch = useDebounce(searchInput, 300)
   useEffect(() => {
-    setFilters((prev) => ({ ...prev, search: debouncedSearch }));
-  }, [debouncedSearch, setFilters]);
+    setFilters({ search: debouncedSearch })
+  }, [debouncedSearch, setFilters])
 
-  const handleFilter = (key, val) =>
-    setFilters((prev) => ({ ...prev, [key]: val }));
+  const handleFilter = (key, val) => setFilters({ [key]: val })
 
   const handleFormChange = (e) =>
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
 
   const handleCreate = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     try {
-      await createTask({ ...form, dueDate: form.dueDate || null });
-      setShowCreate(false);
-      setForm(blankForm);
+      await createTask({ ...form, dueDate: form.dueDate || null })
+      setShowCreate(false)
+      setForm(blankForm)
     } catch {
-      // error toast handled in useTasks — button re-enables via finally
+      // error toast handled in TaskContext
     }
-  };
+  }
+
+  // Memoize task cards to avoid unnecessary re-renders on unrelated state changes
+  const taskCards = useMemo(() =>
+    tasks.map((task) => (
+      <TaskCard
+        key={task._id}
+        task={task}
+        onUpdate={updateTask}
+        onDelete={deleteTask}
+        disabled={submitting}
+      />
+    )),
+    [tasks, updateTask, deleteTask, submitting]
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ── Sticky navbar ─────────────────────────────────────────── */}
+      {/* Sticky navbar */}
       <header className="sticky top-0 z-10 border-b bg-white px-4 py-3 shadow-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <h1 className="text-lg font-bold text-primary-600">📝 Todo App</h1>
+          <h1 className="text-lg font-bold text-primary-600">Todo App</h1>
           <div className="flex items-center gap-3">
             <Link
               to="/profile"
@@ -76,7 +90,7 @@ function TaskPage() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-6">
-        {/* ── Search + Filter bar ─────────────────────────────────── */}
+        {/* Search + filter bar */}
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
             type="text"
@@ -110,69 +124,59 @@ function TaskPage() {
           </div>
         </div>
 
-        {/* ── Toolbar ─────────────────────────────────────────────── */}
+        {/* Toolbar */}
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-gray-500">
-            {loading ? '' : `${pagination.total} task${pagination.total !== 1 ? 's' : ''}`}
+            {!loading && `${meta.total} task${meta.total !== 1 ? 's' : ''}`}
           </p>
           <button
             onClick={() => setShowCreate(true)}
-            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 active:scale-95 transition-transform"
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-transform hover:bg-primary-700 active:scale-95"
           >
             + New task
           </button>
         </div>
 
-        {/* ── Task list ───────────────────────────────────────────── */}
+        {/* Task list */}
         <div className="space-y-3">
           {loading ? (
-            // Skeleton loaders while fetching
-            Array.from({ length: 4 }).map((_, i) => <TaskSkeleton key={i} />)
+            Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
           ) : tasks.length === 0 ? (
-            // Empty state — "No tasks yet"
             <div className="rounded-xl border-2 border-dashed border-gray-200 py-20 text-center">
               <p className="mb-2 text-4xl">📭</p>
               <p className="font-medium text-gray-600">No tasks yet</p>
               <p className="mt-1 text-sm text-gray-400">Click "+ New task" to get started</p>
             </div>
           ) : (
-            tasks.map((task) => (
-              <TaskCard
-                key={task._id}
-                task={task}
-                onUpdate={updateTask}
-                onDelete={deleteTask}
-                disabled={submitting}
-              />
-            ))
+            taskCards
           )}
         </div>
 
-        {/* ── Pagination ──────────────────────────────────────────── */}
-        {!loading && pagination.totalPages > 1 && (
+        {/* Pagination */}
+        {!loading && meta.totalPages > 1 && (
           <div className="mt-6 flex items-center justify-center gap-3">
             <button
-              onClick={() => fetchTasks(pagination.page - 1)}
-              disabled={pagination.page <= 1}
+              onClick={() => fetchTasks(meta.page - 1)}
+              disabled={meta.page <= 1}
               className="rounded-lg border px-4 py-2 text-sm disabled:opacity-40"
             >
-              ← Prev
+              Prev
             </button>
             <span className="text-sm text-gray-500">
-              {pagination.page} / {pagination.totalPages}
+              {meta.page} / {meta.totalPages}
             </span>
             <button
-              onClick={() => fetchTasks(pagination.page + 1)}
-              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => fetchTasks(meta.page + 1)}
+              disabled={meta.page >= meta.totalPages}
               className="rounded-lg border px-4 py-2 text-sm disabled:opacity-40"
             >
-              Next →
+              Next
             </button>
           </div>
         )}
       </main>
 
-      {/* ── Create Task Modal ────────────────────────────────────── */}
+      {/* Create task modal */}
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="New Task">
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
@@ -193,7 +197,7 @@ function TaskPage() {
             <textarea
               name="description"
               rows={3}
-              maxLength={7000}
+              maxLength={1000}
               value={form.description}
               onChange={handleFormChange}
               placeholder="Optional details..."
@@ -260,7 +264,7 @@ function TaskPage() {
         </form>
       </Modal>
     </div>
-  );
+  )
 }
 
-export default TaskPage;
+export default TaskPage

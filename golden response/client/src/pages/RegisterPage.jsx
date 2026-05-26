@@ -1,23 +1,30 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import Spinner from '../components/Spinner';
+// RegisterPage.jsx — new account registration
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import DOMPurify from 'dompurify'
+import { useAuth } from '../context/AuthContext'
+import Spinner from '../components/Spinner'
 
 function RegisterPage() {
-  const { register, loading } = useAuth();
-  const [form, setForm] = useState({ displayName: '', email: '', password: '' });
+  const { register, loading } = useAuth()
+  const [form, setForm] = useState({ displayName: '', email: '', password: '' })
 
   const handleChange = (e) =>
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await register(form);
-    } catch {
-      // error toast handled in useAuth
+    e.preventDefault()
+    const sanitized = {
+      displayName: DOMPurify.sanitize(form.displayName.trim()),
+      email: DOMPurify.sanitize(form.email.trim()),
+      password: form.password,
     }
-  };
+    try {
+      await register(sanitized)
+    } catch {
+      // error toast handled in AuthContext
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
@@ -93,7 +100,7 @@ function RegisterPage() {
         </p>
       </div>
     </div>
-  );
+  )
 }
 
-export default RegisterPage;
+export default RegisterPage

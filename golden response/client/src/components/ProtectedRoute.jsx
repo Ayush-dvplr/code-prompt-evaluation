@@ -1,10 +1,10 @@
-import { Navigate } from 'react-router-dom';
+// ProtectedRoute.jsx — redirects unauthenticated users to /login
+import { Navigate } from 'react-router-dom'
 
-// Redirects unauthenticated users to /login
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem('accessToken');
-  if (!token) return <Navigate to="/login" replace />;
-  return children;
+  const token = localStorage.getItem('accessToken')
+  if (!token) return <Navigate to="/login" replace />
+  return children
 }
 
-export default ProtectedRoute;
+export default ProtectedRoute

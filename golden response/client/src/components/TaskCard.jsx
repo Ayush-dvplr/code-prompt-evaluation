@@ -1,32 +1,38 @@
-import { useState } from 'react';
-import { formatDate, isPast } from '../utils/formatDate';
+// TaskCard.jsx — renders a single task; memoized to prevent unnecessary re-renders
+import { useState, memo } from 'react'
+import { Link } from 'react-router-dom'
+import DOMPurify from 'dompurify'
+import { formatDate, isPast } from '../utils/formatDate'
 
 const priorityColors = {
-  low:    'bg-green-100 text-green-700',
+  low:    'bg-primary-100 text-primary-700',
   medium: 'bg-yellow-100 text-yellow-700',
   high:   'bg-red-100 text-red-700',
-};
+}
 
 const statusColors = {
   'pending':     'bg-gray-100 text-gray-600',
   'in-progress': 'bg-blue-100 text-blue-700',
-  'completed':   'bg-green-100 text-green-700',
-};
+  'completed':   'bg-primary-100 text-primary-700',
+}
 
-function TaskCard({ task, onUpdate, onDelete, disabled }) {
-  const [expanded, setExpanded] = useState(false);
+const TaskCard = memo(function TaskCard({ task, onUpdate, onDelete, disabled }) {
+  const [expanded, setExpanded] = useState(false)
 
   const toggleComplete = () => {
     onUpdate(task._id, {
       status: task.status === 'completed' ? 'pending' : 'completed',
-    });
-  };
+    })
+  }
+
+  // Sanitize description before rendering — DOMPurify strips any injected HTML
+  const safeDescription = DOMPurify.sanitize(task.description || '')
 
   return (
     <div className={`rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${
       task.status === 'completed' ? 'opacity-60' : ''
     }`}>
-      {/* Title + action buttons */}
+      {/* Title + actions */}
       <div className="flex items-start justify-between gap-2">
         <button
           className="flex-1 text-left"
@@ -45,10 +51,18 @@ function TaskCard({ task, onUpdate, onDelete, disabled }) {
             onClick={toggleComplete}
             disabled={disabled}
             title={task.status === 'completed' ? 'Mark incomplete' : 'Mark complete'}
-            className="rounded px-2 py-0.5 text-sm text-green-600 hover:bg-green-50 disabled:cursor-not-allowed"
+            className="rounded px-2 py-0.5 text-sm text-primary-600 hover:bg-primary-50 disabled:cursor-not-allowed"
           >
             {task.status === 'completed' ? '↩' : '✓'}
           </button>
+          <Link
+            to={`/tasks/${task._id}/edit`}
+            title="Edit task"
+            className="rounded px-2 py-0.5 text-sm text-gray-400 hover:bg-gray-50"
+            aria-label="Edit task"
+          >
+            ✎
+          </Link>
           <button
             onClick={() => onDelete(task._id)}
             disabled={disabled}
@@ -61,7 +75,7 @@ function TaskCard({ task, onUpdate, onDelete, disabled }) {
         </div>
       </div>
 
-      {/* Status / priority / due date badges */}
+      {/* Badges */}
       <div className="mt-2 flex flex-wrap gap-1.5">
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityColors[task.priority]}`}>
           {task.priority}
@@ -75,17 +89,20 @@ function TaskCard({ task, onUpdate, onDelete, disabled }) {
               ? 'bg-red-100 text-red-600'
               : 'bg-gray-100 text-gray-500'
           }`}>
-            📅 {formatDate(task.dueDate)}
+            {formatDate(task.dueDate)}
           </span>
         )}
       </div>
 
       {/* Expandable description */}
-      {expanded && task.description && (
-        <p className="mt-3 text-sm text-gray-500">{task.description}</p>
+      {expanded && safeDescription && (
+        <p
+          className="mt-3 text-sm text-gray-500"
+          dangerouslySetInnerHTML={{ __html: safeDescription }}
+        />
       )}
     </div>
-  );
-}
+  )
+})
 
-export default TaskCard;
+export default TaskCard
